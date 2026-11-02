@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}img{max-width:100%}</style>
+<title>Alur Booth Main Activity</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one column "call sheet" — header slate, interactive spin wheel, two tabbed flows as film strips, fallback rule, mystery cards, gift jars */
+:root{
+  --bg:#eef1f6; --surface:#ffffff; --ink:#18213a; --muted:#5b6580; --line:#d7dce8;
+  --rec:#e4473a; --rec-soft:#fde7e4; --game:#0f8f86; --game-soft:#dcf3f1; --tape:#f2b632; --tape-soft:#fdf1d3;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1424; --surface:#182036; --ink:#e9edf7; --muted:#9aa5c2; --line:#2a3452;
+  --rec:#ff6b5e; --rec-soft:#3a1f22; --game:#3cc7bb; --game-soft:#14332f; --tape:#f5c453; --tape-soft:#3a3018; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1424; --surface:#182036; --ink:#e9edf7; --muted:#9aa5c2; --line:#2a3452;
+  --rec:#ff6b5e; --rec-soft:#3a1f22; --game:#3cc7bb; --game-soft:#14332f; --tape:#f5c453; --tape-soft:#3a3018; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:1040px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;line-height:1.1}
+h1{font-size:clamp(2.1rem,6vw,3.6rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:clamp(1.5rem,3.4vw,2rem);font-weight:800}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0}
+.eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--mono)}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--tape);outline-offset:2px}
+
+/* slate header */
+.slate{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:20px}
+.slate .lede{color:var(--muted);max-width:60ch;margin-top:12px}
+.rec{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-weight:700;font-size:.8rem;color:var(--rec)}
+.rec i{width:10px;height:10px;border-radius:50%;background:var(--rec);animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+.crew{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-size:.8rem;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface)}
+.chip.interact{border-color:var(--tape);background:var(--tape-soft)}
+.chip.coach{border-color:var(--rec);background:var(--rec-soft)}
+.chip.gamec{border-color:var(--game);background:var(--game-soft)}
+
+/* mini games */
+const MG={ok:['<span class="node">Mini game</span>','<span class="node ok">Berhasil</span>','<span class="node gift">Gift jajanan</span>','<span class="node end">Spin wheel 1×</span>'],
+ fail:['<span class="node">Mini game</span>','<span class="node bad">Gagal</span>','<span class="node end">Spin wheel 1×</span>']};
+function mg(k){document.getElementById("mgRoute").innerHTML=MG[k].map(x=>`<li>${x}</li>`).join("");
+ document.getElementById("mgOk").setAttribute("aria-pressed",k==="ok");document.getElementById("mgFail").setAttribute("aria-pressed",k==="fail")}
+document.getElementById("mgOk").onclick=()=>mg("ok");document.getElementById("mgFail").onclick=()=>mg("fail");mg("ok");
+
+/* wheel */
+.spin{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:32px;align-items:center}
+.wheel-box{position:relative;width:100%;max-width:320px;aspect-ratio:1;margin:0 auto}
+.pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-top:24px solid var(--ink);z-index:2}
+.wheel{width:100%;height:100%;border-radius:50%;border:6px solid var(--ink);position:relative;transition:transform 3.6s cubic-bezier(.17,.67,.12,1);
+  background:conic-gradient(var(--rec) 0 45deg,var(--game) 45deg 90deg,var(--rec) 90deg 135deg,var(--game) 135deg 180deg,var(--rec) 180deg 225deg,var(--game) 225deg 270deg,var(--rec) 270deg 315deg,var(--game) 315deg 360deg)}
+.wheel span{position:absolute;left:50%;top:50%;transform-origin:0 0;font-family:var(--mono);font-weight:700;font-size:.72rem;color:#fff;letter-spacing:.06em}
+.hub{position:absolute;inset:38%;border-radius:50%;background:var(--surface);border:4px solid var(--ink);display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:.9rem}
+.spin-copy{display:flex;flex-direction:column;gap:14px;min-width:0}
+.btn{border:2px solid var(--ink);background:var(--ink);color:var(--bg);padding:10px 20px;border-radius:10px;font-weight:700;align-self:flex-start}
+.btn:hover{transform:translateY(-1px)}
+.btn.ghost{background:transparent;color:var(--ink)}
+.result{min-height:3.2em;font-size:1.05rem}
+.result b{font-family:var(--display)}
+
+/* tabs + flow */
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{border:2px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 16px;border-radius:10px;font-weight:700;display:flex;align-items:center;gap:8px}
+.tab .dot{width:10px;height:10px;border-radius:50%}
+.tab[aria-selected="true"]{border-color:var(--ink);box-shadow:3px 3px 0 var(--ink)}
+.flow-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.strip{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;position:relative}
+.step{display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;padding:16px 0;border-top:1px dashed var(--line);cursor:pointer}
+.step:first-child{border-top:none}
+.tc{font-family:var(--mono);font-weight:700;font-size:.85rem;padding-top:3px;color:var(--muted)}
+.step .body{display:flex;flex-direction:column;gap:6px;min-width:0}
+.step .who{display:flex;gap:6px;flex-wrap:wrap}
+.step .detail{color:var(--muted);font-size:.95rem}
+.step.active .tc{color:var(--accent)}
+.step.active h3{color:var(--accent)}
+.flow{--accent:var(--rec);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 24px;display:flex;flex-direction:column;gap:12px}
+.flow.game{--accent:var(--game)}
+.flag{font-family:var(--mono);font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--tape-soft);color:var(--ink);border:1px solid var(--tape)}
+.progress{height:6px;background:var(--line);border-radius:999px;overflow:hidden}
+.progress i{display:block;height:100%;background:var(--accent);transition:width .3s}
+.nav{display:flex;gap:8px}
+
+/* rule */
+.rule{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:center;background:var(--tape-soft);border:2px solid var(--tape);border-radius:14px;padding:20px 24px}
+.rule .route{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:700;font-size:.85rem;flex-wrap:wrap}
+.pill{padding:6px 12px;border-radius:999px;color:#fff}
+.pill.c{background:var(--rec)} .pill.g{background:var(--game)}
+.rule p{font-weight:600}
+
+/* cards */
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.deck{display:flex;flex-direction:column;gap:12px}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.mcard{aspect-ratio:3/4;max-width:100%;perspective:600px;border:none;background:none;padding:0}
+.mcard .in{position:relative;width:100%;height:100%;transition:transform .5s;transform-style:preserve-3d}
+.mcard.open .in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:10px;backface-visibility:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px;text-align:center}
+.front{background:var(--accent);color:#fff;font-family:var(--display);font-weight:800;font-size:1.6rem}
+.front small{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;font-weight:500}
+.back{background:var(--surface);border:2px dashed var(--accent);transform:rotateY(180deg);font-size:.72rem;color:var(--muted)}
+.back b{color:var(--ink);font-size:.8rem}
+.deck.c{--accent:var(--rec)} .deck.g{--accent:var(--game)}
+.note{font-size:.85rem;color:var(--muted)}
+
+/* gifts */
+.jar{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.jar.c{--accent:var(--rec)} .jar.g{--accent:var(--game)}
+.jar-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.tag{font-family:var(--mono);font-size:.7rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+.items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.items li{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);transition:background .2s,border-color .2s}
+.items li.hit{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.g-item{font-size:.85rem;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--bg)}
+.jar .btn{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.entry{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.door{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;--accent:var(--tape)}
+.door.mg{border:2px solid var(--tape)}
+.door.sw{--accent:var(--ink)}
+.seg{display:inline-flex;border:2px solid var(--ink);border-radius:10px;overflow:hidden;align-self:flex-start}
+.segb{border:none;background:transparent;color:var(--ink);padding:8px 16px;font-weight:700}
+.segb[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.route2{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.route2 li{display:flex;align-items:center;gap:8px}
+.route2 li+li::before{content:"→";font-family:var(--mono);color:var(--muted)}
+.node{font-weight:600;font-size:.9rem;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg)}
+.node.gift{border-color:var(--tape);background:var(--tape-soft)}
+.node.end{border-color:var(--ink);background:var(--ink);color:var(--bg)}
+.node.bad{border-color:var(--rec);color:var(--rec)}
+.node.ok{border-color:var(--game);color:var(--game)}
+.once{font-size:.9rem;display:flex;gap:8px;align-items:flex-start}
+footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:16px}
+
+@media (max-width:720px){
+  .slate{grid-template-columns:1fr}
+  .spin,.grid2,.rule,.entry{grid-template-columns:1fr}
+  .flow{padding:16px}
+  .step{grid-template-columns:48px minmax(0,1fr);gap:10px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="slate">
+    <div>
+      <div class="eyebrow">Booth · Main Activity · Interact × Coaching</div>
+      <h1>Alur Booth Main Activity</h1>
+      <p class="lede">Gambaran alur kerja bareng di booth: dari ajak orang main spin wheel sampai peserta ambil hadiah. Peserta bisa masuk lewat <b>Mini Games</b> atau langsung <b>Spin Wheel</b>, lalu lanjut ke jalur <b>Challenge</b> atau <b>Game</b>. Klik tiap langkah untuk lihat siapa yang pegang.</p>
+      <div class="crew">
+        <span class="chip interact">Divisi Interact</span>
+        <span class="chip coach">Coaching</span>
+        <span class="chip gamec">Main Act (divisi mana pun)</span>
+      </div>
+    </div>
+    <div class="rec"><i></i>REC · 1× SPIN / ORANG</div>
+  </header>
+
+  <section aria-labelledby="entry-h" style="display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div class="eyebrow">2 pilihan saat peserta datang</div>
+      <h2 id="entry-h">Mini Games atau Spin Wheel</h2>
+    </div>
+    <div class="entry">
+      <div class="door mg">
+        <div class="jar-head"><h3>Mini Games</h3><span class="tag">Make me… · Main Act</span></div>
+        <p class="note">Peserta main mini game "Make me…" dulu, dipandu Main Act. Hasilnya menentukan rute ke spin wheel.</p>
+        <div class="seg" role="group" aria-label="Hasil mini game">
+          <button type="button" id="mgOk" class="segb" aria-pressed="true">Berhasil</button>
+          <button type="button" id="mgFail" class="segb" aria-pressed="false">Gagal</button>
+        </div>
+        <ol class="route2" id="mgRoute"></ol>
+      </div>
+      <div class="door sw">
+        <div class="jar-head"><h3>Langsung Spin Wheel</h3><span class="tag">Interact</span></div>
+        <p class="note">Peserta yang tidak ikut mini games langsung diajak main spin wheel oleh divisi Interact.</p>
+        <ol class="route2"><li><span class="node">Datang</span></li><li><span class="node end">Spin wheel 1×</span></li><li><span class="node">Challenge / Game</span></li></ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="spin" aria-labelledby="spin-h">
+    <div class="wheel-box">
+      <div class="pointer" aria-hidden="true"></div>
+      <div class="wheel" id="wheel"></div>
+      <div class="hub">1× SPIN</div>
+    </div>
+    <div class="spin-copy">
+      <div class="eyebrow">Semua peserta berakhir di sini</div>
+      <h2 id="spin-h">Spin wheel</h2>
+      <p class="note">Divisi Interact ajak orang main spin wheel, iming-imingi hadiah yang ada di spin. Hasil spin menentukan jalur: Challenge atau Game. Coba simulasinya.</p>
+      <p class="once"><span class="flag">ATURAN</span> Masing-masing peserta hanya boleh 1 kali spin wheel, baik datang langsung maupun dari Mini Games.</p>
+      <button class="btn" id="spinBtn" type="button">Putar spin wheel</button>
+      <p class="result" id="result" aria-live="polite">Belum diputar.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="flow-h" style="display:flex;flex-direction:column;gap:16px">
+    <div class="flow-head">
+      <h2 id="flow-h">Alur per jalur</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-challenge" aria-selected="true" type="button"><span class="dot" style="background:var(--rec)"></span>Challenge · 6 langkah</button>
+        <button class="tab" role="tab" id="tab-game" aria-selected="false" type="button"><span class="dot" style="background:var(--game)"></span>Game · 5 langkah</button>
+      </div>
+    </div>
+    <div class="flow" id="flow">
+      <div class="progress"><i id="bar"></i></div>
+      <ol class="strip" id="strip"></ol>
+      <div class="nav">
+        <button class="btn ghost" id="prev" type="button">← Sebelumnya</button>
+        <button class="btn" id="next" type="button">Berikutnya →</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rule" aria-label="Aturan pindah jalur">
+    <div class="route"><span class="pill c">CHALLENGE</span><span>✕ tidak bersedia →</span><span class="pill g">GAME</span></div>
+    <p>Hanya jika peserta dapat Challenge dan tidak bersedia mengikuti, dengan alasan apa pun, langsung arahkan untuk main Game saja.</p>
+  </section>
+
+  <section aria-labelledby="mc-h" style="display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div class="eyebrow">Diambil secara random</div>
+      <h2 id="mc-h">Mystery cards</h2>
+    </div>
+    <div class="grid2">
+      <div class="deck c">
+        <h3>Mystery Challenge Card</h3>
+        <div class="cards" id="deckC"></div>
+        <p class="note">Tiap kartu perlu dijelaskan detail apa yang harus peserta lakukan.</p>
+      </div>
+      <div class="deck g">
+        <h3>Mystery Game</h3>
+        <div class="cards" id="deckG"></div>
+        <p class="note">Isi game 1–4 masih perlu ditentukan tim.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="gift-h" style="display:flex;flex-direction:column;gap:16px">
+    <div>
+      <div class="eyebrow">Diambil dari toples, di meja depan</div>
+      <h2 id="gift-h">Hadiah</h2>
+    </div>
+    <div class="grid2">
+      <div class="jar c">
+        <div class="jar-head"><h3>Gift Challenge</h3><span class="tag">Bundling & random</span></div>
+        <ul class="items" id="giftC"></ul>
+        <button class="btn" type="button" data-jar="C">Ambil dari toples</button>
+      </div>
+      <div class="jar g">
+        <div class="jar-head"><h3>Gift Game</h3><span class="tag">Satuan & random</span></div>
+        <ul class="items" id="giftG"></ul>
+        <button class="btn" type="button" data-jar="G">Ambil dari toples</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>Masing-masing peserta hanya 1 kali spin wheel. Disusun dari catatan "Alur di booth main activity, interact dan coaching kerja bareng di sini". Bagian bertanda <span class="flag">HANYA JIKA</span> adalah kondisi, bukan langkah wajib.</footer>
+</div>
+
+<script>
+const FLOWS={
+  challenge:[
+    {t:"Ajak main spin wheel",d:"Orang datang, divisi Interact ajak main spin wheel. Iming-imingi hadiah yang ada di spin.",who:["interact"]},
+    {t:"Arahkan ke coaching",d:"Setelah main spin wheel, langsung arahkan ke coaching untuk mengambil mystery challenge card.",who:["interact","coach"]},
+    {t:"Materi angle videografi",d:"Di coaching, peserta diberi materi soal angle di videografi. Kalau mumpuni, jelaskan camera movement sedikit saja. Maksimal 3 sampai 5 menit atau kurang.",who:["coach"],flag:"HANYA JIKA mumpuni",tc:"03–05′"},
+    {t:"Capture the moment",d:"Peserta membuat challenge yang mereka terima.",who:["coach"]},
+    {t:"Share the moment",d:"Minta video mereka yang sudah jadi, hanya jika mereka bersedia.",who:["coach"],flag:"HANYA JIKA bersedia"},
+    {t:"Ambil hadiah di depan",d:"Peserta mengambil hadiah dari toples Gift Challenge (bundling, random).",who:["interact"]}
+  ],
+  game:[
+    {t:"Ajak main spin wheel",d:"Orang datang, divisi Interact ajak main spin wheel. Iming-imingi hadiah yang ada di spin.",who:["interact"]},
+    {t:"Arahkan ke tempat game",d:"Setelah main spin wheel dan dapat Game, langsung arahkan ke tempat game.",who:["interact","gamec"]},
+    {t:"Ambil mystery game",d:"Di bagian game, peserta mengambil mystery game secara random.",who:["gamec"]},
+    {t:"Mainkan sampai selesai",d:"Peserta membuat dan menyelesaikan game tersebut, ditemani 1 atau 2 orang dari divisi mana pun.",who:["gamec"]},
+    {t:"Ambil hadiah di depan",d:"Peserta yang sudah selesai mengambil hadiah dari toples Gift Game (satuan, random).",who:["interact"]}
+  ]
+};
+const WHO={interact:"Interact",coach:"Coaching",gamec:"Main Act"};
+const CLS={interact:"interact",coach:"coach",gamec:"gamec"};
+let cur="challenge",idx=0;
+const strip=document.getElementById("strip"),flow=document.getElementById("flow"),bar=document.getElementById("bar");
+function render(){
+  const steps=FLOWS[cur];
+  flow.className="flow "+(cur==="game"?"game":"");
+  strip.innerHTML=steps.map((s,i)=>`<li class="step${i===idx?" active":""}" data-i="${i}" tabindex="0">
+    <div class="tc">${String(i+1).padStart(2,"0")}${s.tc?`<br><span style="font-size:.7rem">${s.tc}</span>`:""}</div>
+    <div class="body"><h3>${s.t}</h3><p class="detail">${s.d}</p>
+    <div class="who">${s.who.map(w=>`<span class="chip ${CLS[w]}">${WHO[w]}</span>`).join("")}${s.flag?`<span class="flag">${s.flag}</span>`:""}</div></div></li>`).join("");
+  bar.style.width=((idx+1)/steps.length*100)+"%";
+  document.getElementById("prev").disabled=idx===0;
+  document.getElementById("next").disabled=idx===steps.length-1;
+  ["challenge","game"].forEach(k=>document.getElementById("tab-"+k).setAttribute("aria-selected",k===cur));
+}
+function setFlow(k){cur=k;idx=0;render()}
+document.getElementById("tab-challenge").onclick=()=>setFlow("challenge");
+document.getElementById("tab-game").onclick=()=>setFlow("game");
+document.getElementById("prev").onclick=()=>{if(idx>0){idx--;render()}};
+document.getElementById("next").onclick=()=>{if(idx<FLOWS[cur].length-1){idx++;render()}};
+strip.addEventListener("click",e=>{const li=e.target.closest(".step");if(li){idx=+li.dataset.i;render()}});
+strip.addEventListener("keydown",e=>{if(e.key==="Enter"){const li=e.target.closest(".step");if(li){idx=+li.dataset.i;render()}}});
+render();
+
+/* mini games */
+const MG={ok:['<span class="node">Mini game</span>','<span class="node ok">Berhasil</span>','<span class="node gift">Gift jajanan</span>','<span class="node end">Spin wheel 1×</span>'],
+ fail:['<span class="node">Mini game</span>','<span class="node bad">Gagal</span>','<span class="node end">Spin wheel 1×</span>']};
+function mg(k){document.getElementById("mgRoute").innerHTML=MG[k].map(x=>`<li>${x}</li>`).join("");
+ document.getElementById("mgOk").setAttribute("aria-pressed",k==="ok");document.getElementById("mgFail").setAttribute("aria-pressed",k==="fail")}
+document.getElementById("mgOk").onclick=()=>mg("ok");document.getElementById("mgFail").onclick=()=>mg("fail");mg("ok");
+
+/* wheel */
+const wheel=document.getElementById("wheel");
+const segs=["CHALLENGE","GAME","CHALLENGE","GAME","CHALLENGE","GAME","CHALLENGE","GAME"];
+segs.forEach((s,i)=>{const sp=document.createElement("span");const a=i*45+22.5-90;sp.textContent=s;sp.style.transform=`rotate(${a}deg) translate(46px,-50%)`;wheel.appendChild(sp)});
+let rot=0,spinning=false;
+document.getElementById("spinBtn").onclick=()=>{
+  if(spinning)return;spinning=true;
+  const target=Math.floor(Math.random()*8);
+  const centre=target*45+22.5;
+  const base=rot-(rot%360)+360*5;
+  rot=base+(360-centre)+ (Math.random()*20-10);
+  wheel.style.transform=`rotate(${rot}deg)`;
+  const res=document.getElementById("result");res.textContent="Memutar…";
+  const done=()=>{spinning=false;const k=segs[target]==="GAME"?"game":"challenge";
+    res.innerHTML=k==="game"?`Hasil: <b style="color:var(--game)">GAME</b>. Arahkan peserta ke tempat game.`:`Hasil: <b style="color:var(--rec)">CHALLENGE</b>. Arahkan peserta ke coaching.`;
+    setFlow(k);idx=1;render();};
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)done();else setTimeout(done,3700);
+};
+
+/* mystery cards */
+function deck(el,label){for(let i=1;i<=4;i++){const b=document.createElement("button");b.type="button";b.className="mcard";b.setAttribute("aria-label",label+" "+i);
+  b.innerHTML=`<div class="in"><div class="face front"><small>MYSTERY</small>?<small>#${i}</small></div><div class="face back"><b>${label} ${i}</b>Belum diisi</div></div>`;
+  b.onclick=()=>b.classList.toggle("open");el.appendChild(b)}}
+deck(document.getElementById("deckC"),"Challenge");
+deck(document.getElementById("deckG"),"Game");
+
+/* gift jars */
+const GIFTS={C:[["Power bank","Tripod","Jajanan"],["Tumbler","Tripod","Jajanan"],["Power bank","Voucher","Earphone"],["Tripod","Voucher","Jajanan"],["Earphone","Voucher","Jajanan"]],G:[["Jajanan"],["Earphone"],["Voucher"],["Tumbler"]]};
+function fill(k){const ul=document.getElementById("gift"+k);ul.innerHTML=GIFTS[k].map((b,i)=>`<li data-i="${i}">${k==="C"?`<span class="mono" style="font-size:.75rem;color:var(--muted);align-self:center">Bundle ${i+1}</span>`:""}${b.map(x=>`<span class="g-item">${x}</span>`).join("")}</li>`).join("")}
+fill("C");fill("G");
+document.querySelectorAll("[data-jar]").forEach(btn=>btn.onclick=()=>{
+  const k=btn.dataset.jar,lis=[...document.querySelectorAll("#gift"+k+" li")];let n=0;const total=10+Math.floor(Math.random()*lis.length);
+  btn.disabled=true;
+  const tick=()=>{lis.forEach(l=>l.classList.remove("hit"));lis[n%lis.length].classList.add("hit");n++;
+    if(n<=total)setTimeout(tick,60+n*12);else{btn.disabled=false;btn.textContent="Ambil lagi"}};
+  tick();
+});
+</script>
+</body>
+</html>
